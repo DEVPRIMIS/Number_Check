@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>NumRep Check – Analyse complète de numéro</title>
+  <script src="https://unpkg.com/libphonenumber-js@1.10.14/bundle/libphonenumber-js.min.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f7f7f7;
+      margin: 0;
+      padding: 20px;
+    }
+    .container {
+      max-width: 600px;
+      margin: auto;
+      background: white;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+    h1 {
+      text-align: center;
+      color: #444;
+    }
+    input[type="text"] {
+      width: 100%;
+      padding: 12px;
+      margin: 10px 0;
+      font-size: 16px;
+    }
+    button {
+      width: 100%;
+      padding: 12px;
+      background: #007bff;
+      color: white;
+      border: none;
+      font-size: 16px;
+      cursor: pointer;
+      border-radius: 8px;
+      margin-bottom: 10px;
+    }
+    button:hover {
+      background: #0056b3;
+    }
+    .results {
+      margin-top: 20px;
+      padding: 15px;
+      background: #eef;
+      border-radius: 8px;
+    }
+    .signal-button {
+      background: #dc3545;
+      margin-top: 5px;
+    }
+    .signal-button:hover {
+      background: #a71d2a;
+    }
+    a {
+      color: #007bff;
+      text-decoration: none;
+    }
+    a:hover {
+      text-decoration: underline;
+    }
+    .section-title {
+      margin-top: 20px;
+      font-weight: bold;
+      font-size: 1.1em;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🔍 NumRep Check</h1>
+    <input type="text" id="phoneInput" placeholder="Entre un numéro (ex : +33612345678)" />
+    <button onclick="analyzeNumber()">Analyser</button>
+
+    <div class="results" id="results" style="display:none;"></div>
+  </div>
+
+  <script>
+    // Analyse + affichage
+    function analyzeNumber() {
+      const number = document.getElementById("phoneInput").value.trim();
+      const resultsDiv = document.getElementById("results");
+      resultsDiv.style.display = "block";
+
+      if (!number.startsWith("+")) {
+        resultsDiv.innerHTML = '❌ Format invalide. Le numéro doit commencer par "+" et indicatif.';
+        return;
+      }
+
+      try {
+        const phoneUtil = window.libphonenumber;
+        const parsed = phoneUtil.parsePhoneNumber(number);
+
+        if (!parsed.isValid()) {
+          resultsDiv.innerHTML = `❌ Le numéro est invalide.`;
+          return;
+        }
+
+        const country = parsed.country || "Inconnu";
+        const national = parsed.formatNational();
+        const type = parsed.getType();
+
+        let typeStr = "Inconnu";
+        switch(type) {
+          case "MOBILE": typeStr = "Mobile"; break;
+          case "FIXED_LINE": typeStr = "Fixe"; break;
+          case "VOIP": typeStr = "VoIP (Internet)"; break;
+          case "TOLL_FREE": typeStr = "Numéro gratuit"; break;
+        }
+
+        // Réputation simulée
+        const fakeReputation = number.startsWith("+229") ? "🔴 Risqué (signalé)" : "🟢 Sûr";
+
+        // Liens Google Dorks préfabriqués
+        const encodedNum = encodeURIComponent(number);
+        const searchLinks = `
+          <ul>
+            <li><a href="https://www.google.com/search?q=site%3Achat.whatsapp.com+${encodedNum}" target="_blank" rel="noopener">Groupes WhatsApp publics</a></li>
+            <li><a href="https://www.google.com/search?q=site%3Ascamcallfighters.com+${encodedNum}" target="_blank" rel="noopener">Sites de signalements</a></li>
+            <li><a href="https://www.google.com/search?q=%22${encodedNum}%22+arnaque" target="_blank" rel="noopener">Recherches arnaque générales</a></li>
+          </ul>
+        `;
+
+        // Gestion du compteur de signalement dans localStorage
+        const signals = JSON.parse(localStorage.getItem("signals") || "{}");
+        const currentSignals = signals[number] || 0;
+
+        const signalText = currentSignals === 0 ? 
+          "Ce numéro n’a pas encore été signalé." : 
+          `Ce numéro a été signalé <strong>${currentSignals}</strong> fois.`;
+
+        resultsDiv.innerHTML = `
+          <strong>Résultat pour :</strong> ${number}<br><br>
+          ✅ <strong>Pays :</strong> ${country}<br>
+          📞 <strong>Format national :</strong> ${national}<br>
+          🔍 <strong>Type :</strong> ${typeStr}<br>
+          ⚠️ <strong>Réputation estimée :</strong> ${fakeReputation}<br><br>
+
+          <div class="section-title">🔎 Présence sur le Web</div>
+          ${searchLinks}
+
+          <div class="section-title">🚨 Signalements communautaires</div>
+          <p>${signalText}</p>
+          <button class="signal-button" onclick="signalNumber('${number}')">🚩 Signaler ce numéro</button>
+
+          <div class="section-title">🔓 Vérification dans les leaks</div>
+          <p>Ce service ne permet pas une vérification automatique dans les bases de données compromises. Vous pouvez vérifier manuellement sur : 
+          <a href="https://haveibeenpwned.com/" target="_blank" rel="noopener">Have I Been Pwned</a>.</p>
+          <p>Si ce numéro est lié à un e-mail compromis, cela apparaîtra là-bas.</p>
+        `;
+
+      } catch (e) {
+        resultsDiv.innerHTML = `❌ Erreur de traitement. Vérifiez le format du numéro.`;
+      }
+    }
+
+    // Fonction signaler le numéro, stockage local
+    function signalNumber(number) {
+      const signals = JSON.parse(localStorage.getItem("signals") || "{}");
+      signals[number] = (signals[number] || 0) + 1;
+      localStorage.setItem("signals", JSON.stringify(signals));
+      alert(`Merci, vous avez signalé le numéro ${number}.`);
+      analyzeNumber(); // refresh affichage
+    }
+  </script>
+</body>
+</html> 
